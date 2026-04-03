@@ -1,11 +1,13 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.routes.rooms import router as rooms_router
+from backend.database import DatabaseConnectionError, init_db
+from backend.routes import bookings_router, rooms_router
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="HostelGrid Backend")
+    """Create and configure the FastAPI application instance."""
+    app = FastAPI(title="Centralized Room Allocation & Management System")
 
     app.add_middleware(
         CORSMiddleware,
@@ -18,17 +20,15 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    @app.get("/", tags=["health"])
-    def read_root() -> dict[str, str | dict[str, str]]:
-        return {
-            "message": "HostelGrid backend is running",
-            "available_endpoints": {
-                "rooms": "/api/rooms",
-                "allocate": "/api/rooms/allocate",
-            },
-        }
+    @app.on_event("startup")
+    def startup() -> None:
+        try:
+            init_db()
+        except DatabaseConnectionError:
+            raise
 
-    app.include_router(rooms_router, prefix="/api")
+    app.include_router(rooms_router)
+    app.include_router(bookings_router)
     return app
 
 
